@@ -1,5 +1,6 @@
 package day5
 
+import utils.toward
 import java.io.File
 import kotlin.system.measureTimeMillis
 
@@ -9,11 +10,6 @@ fun main() {
 }
 
 data class Segment(val startx: Int, val starty: Int, val endx: Int, val endy: Int)
-
-infix fun Int.toward(to: Int): IntProgression {
-    val step = if (this > to) -1 else 1
-    return IntProgression.fromClosedRange(this, to, step)
-}
 
 fun Segment.calculatePoints(withDiagonals: Boolean): List<Pair<Int, Int>> {
     if (startx == endx) {
