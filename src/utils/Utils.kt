@@ -9,4 +9,10 @@ infix fun Int.toward(to: Int): IntProgression {
     return IntProgression.fromClosedRange(this, to, step)
 }
 
-
+fun String.permutations(): List<String> {
+    if (length == 1)
+        return listOf(this)
+    return (this.indices).flatMap { i ->
+        removeRange(i, i + 1).permutations().map { it + this[i] }
+    }
+}
