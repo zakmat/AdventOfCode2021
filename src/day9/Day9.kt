@@ -1,5 +1,6 @@
 package day9
 
+import utils.*
 import java.io.File
 import kotlin.system.measureTimeMillis
 
@@ -9,42 +10,14 @@ fun main() {
 }
 
 fun List<List<Int>>.neighborHeights(x: Int, y: Int): List<Int> {
-    val result = mutableListOf<Int>()
-    if ((x > 0)) {
-        result.add(this[x - 1][y])
-    }
-    if (y > 0) result.add(this[x][y - 1])
-    if (y < this[0].size - 1) {
-        result.add(this[x][y + 1])
-    }
-    if (x < this.size - 1) result.add(this[x + 1][y])
-
-    return result
+    return adjacent(x, y).map { this[it.x][it.y] }
 }
 
 fun List<List<Int>>.higherPoints(lowPoint: Pair<Int, Int>): List<Pair<Int, Int>> {
-    val result = mutableListOf<Pair<Int, Int>>()
-    if ((lowPoint.first > 0)) {
-        val candidate = lowPoint.first - 1 to lowPoint.second
-        if (this[candidate.first][candidate.second] < 9 && this[candidate.first][candidate.second] > this[lowPoint.first][lowPoint.second])
-            result.add(candidate)
-    }
-    if (lowPoint.second > 0) {
-        val candidate = lowPoint.first to lowPoint.second - 1
-        if (this[candidate.first][candidate.second] < 9 && this[candidate.first][candidate.second] > this[lowPoint.first][lowPoint.second])
-            result.add(candidate)
-    }
-    if (lowPoint.second < this[0].size - 1) {
-        val candidate = lowPoint.first to lowPoint.second + 1
-        if (this[candidate.first][candidate.second] < 9 && this[candidate.first][candidate.second] > this[lowPoint.first][lowPoint.second])
-            result.add(candidate)
-    }
-    if (lowPoint.first < this.size - 1) {
-        val candidate = lowPoint.first + 1 to lowPoint.second
-        if (this[candidate.first][candidate.second] < 9 && this[candidate.first][candidate.second] > this[lowPoint.first][lowPoint.second])
-            result.add(candidate)
-    }
-    return result.toList()
+    return adjacent(
+        lowPoint.x,
+        lowPoint.y
+    ).filter { (x, y) -> this[x][y] < 9 && this[x][y] > this[lowPoint.x][lowPoint.y] }
 }
 
 fun List<List<Int>>.calcBasinSize(lowPoint: Pair<Int, Int>): Int {
@@ -66,22 +39,17 @@ fun solve(file: File) {
     }
 
     val timeInMillis = measureTimeMillis {
-        val lowPoints = sequence<Pair<Int, Int>> {
-            heights.indices.forEach { i ->
-                heights[0].indices.forEach { j ->
-                    if (heights[i][j] < heights.neighborHeights(i, j).minOf { it }) {
-                        yield(i to j)
-                    }
-                }
-            }
-        }.toList()
+        val lowPoints = heights.gridMapIndexed { i, j, height ->
+            if (height < heights.neighborHeights(i, j).minOf { it }) {
+                i to j
+            } else null
+        }.flatten().filterNotNull()
 
-        val stage1result = lowPoints.sumOf { heights[it.first][it.second] + 1 }
+        val stage1result = lowPoints.sumOf { heights[it.x][it.y] + 1 }
         println("Stage1: $stage1result")
 
-        val results = lowPoints.map { heights.calcBasinSize(it) }.sortedDescending()
-
-        val stage2result = results.take(3).fold(1, Int::times)
+        val stage2result = lowPoints.map { heights.calcBasinSize(it) }.sortedDescending().take(3)
+            .fold(1, Int::times)
         println("Stage2: $stage2result")
     }
 
