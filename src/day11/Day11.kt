@@ -1,7 +1,6 @@
 package day11
 
-import utils.adjacent
-import utils.gridMapIndexed
+import utils.*
 import java.io.File
 import kotlin.system.measureTimeMillis
 
@@ -31,37 +30,24 @@ fun simulate(input: List<List<Int>>, steps: Int): Pair<Int, Int?> {
     var grid = input
     var flashes = 0
     var step = 0
-    while (step < steps) {
-        // initial increase
+    while (step++ < steps) {
         val flashed = mutableSetOf<Pair<Int, Int>>()
         val toFlash = mutableSetOf<Pair<Int, Int>>()
-        grid = grid.gridMapIndexed { point, item ->
-            if (item >= 9)
-                toFlash.add(point)
-            item + 1
-        }
+        // initial increase
+        grid = grid.gridMap { item -> item + 1 }
         // flashes calculation
+        grid.gridMapIndexed { pos, item -> if (item >= 10) toFlash.add(pos) }
         while (toFlash.isNotEmpty()) {
             val candidate = toFlash.first()
             toFlash.remove(candidate)
             flashed.add(candidate)
             val neighbours = grid.adjacent(candidate, true, true)
-            grid = grid.gridMapIndexed { point, item ->
-                if (point !in neighbours) {
-                    item
-                } else {
-                    if (item >= 9 && point !in flashed)
-                        toFlash.add(point)
-                    item + 1
-                }
-            }
+            grid = grid.gridMapIndexed { pos, item -> if (pos in neighbours) item + 1 else item }
+            grid.gridMapIndexed { pos, item -> if (pos !in flashed && item >= 10) toFlash.add(pos) }
         }
         // reset
-        grid = grid.gridMapIndexed { point, item ->
-            if (point in flashed) 0 else item
-        }
+        grid = grid.gridMapIndexed { point, item -> if (point in flashed) 0 else item }
 
-        step++
         flashes += flashed.size
 
         if (flashed.size == grid.size * grid[0].size) {
