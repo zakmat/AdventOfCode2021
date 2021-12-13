@@ -44,9 +44,8 @@ fun solve(file: File) {
 }
 
 fun List<Pair<Int, Int>>.fold(folds: List<Pair<String, Int>>): List<Pair<Int, Int>> {
-    var result = this
-    folds.forEach { (direction, index) ->
-        result = when (direction) {
+    val result = folds.fold(this) { result, (direction, index) -> // LOL
+        when (direction) {
             "x" -> result.map { dot -> (if (dot.x > index) index - (dot.x - index) else dot.x) to dot.y }
             "y" -> result.map { dot -> dot.x to if (dot.y > index) index - (dot.y - index) else dot.y }
             else -> error("Invalid")
