@@ -1,5 +1,8 @@
 package utils
 
+import java.util.*
+import kotlin.collections.HashSet
+
 operator fun Pair<Int, Int>.times(arg: Int): Pair<Int, Int> = first * arg to second * arg
 operator fun Pair<Int, Int>.plus(other: Pair<Int, Int>): Pair<Int, Int> =
     first + other.first to second + other.second
@@ -24,6 +27,9 @@ val Pair<Int, Int>.y: Int
     get() = this.second
 val Pair<Int, Int>.x: Int
     get() = this.first
+
+val <E> List<List<E>>.gridSize: Pair<Int, Int>
+    get() = this.size to this[0].size
 
 fun List<List<Int>>.adjacent(
     point: Pair<Int, Int>,
@@ -63,8 +69,16 @@ inline fun <T> List<List<T>>.gridForEachIndexed(action: (i: Int, j: Int, T) -> U
 inline fun <T, R> List<List<T>>.gridMap(transform: (T) -> R): List<List<R>> {
     return this.map { row ->
         row.map { item ->
-           transform(item)
+            transform(item)
         }
+    }
+}
+
+inline fun <T, R> List<List<T>>.mutableGridMap(transform: (T) -> R): List<MutableList<R>> {
+    return this.map { row ->
+        row.map { item ->
+            transform(item)
+        }.toMutableList()
     }
 }
 
@@ -75,6 +89,7 @@ inline fun <T, R> List<List<T>>.gridMapIndexed(transform: (i: Int, j: Int, T) ->
         }
     }
 }
+
 inline fun <T, R> List<List<T>>.gridMapIndexed(transform: (point: Pair<Int, Int>, T) -> R): List<List<R>> {
     return this.mapIndexed { i, row ->
         row.mapIndexed { j, item ->
@@ -82,3 +97,56 @@ inline fun <T, R> List<List<T>>.gridMapIndexed(transform: (point: Pair<Int, Int>
         }
     }
 }
+
+fun <E> List<List<E>>.getValue(point: Pair<Int, Int>): E = this[point.x][point.y]
+fun <E> List<MutableList<E>>.setValue(point: Pair<Int, Int>, value: E) {
+    this[point.x][point.y] = value
+}
+
+fun List<List<Int>>.calculateShortestPath(start: Pair<Int, Int>, end: Pair<Int, Int>): Int =
+    dijkstra(start).path(end).sumOf { getValue(it) }
+
+fun List<List<Pair<Int, Int>?>>.path(end: Pair<Int, Int>): List<Pair<Int, Int>> {
+    val result = mutableListOf<Pair<Int, Int>>()
+    var current = end
+    while (this.getValue(current) != null) {
+        result.add(current)
+        current = getValue(current)!!
+    }
+
+    return result.toList()
+}
+
+fun List<List<Int>>.dijkstra(start: Pair<Int, Int>): List<List<Pair<Int, Int>?>> {
+    val visited: HashSet<Pair<Int, Int>> = HashSet()
+
+    val delta = mutableGridMap { Int.MAX_VALUE }
+    val comparator: Comparator<Pair<Int, Int>> = compareBy { delta.getValue(it) }
+
+    val queue = PriorityQueue(size * this[0].size, comparator)
+    delta.setValue(start, 0)
+    queue.add(start)
+
+    val previous: List<MutableList<Pair<Int, Int>?>> = mutableGridMap { null }
+
+    while (queue.isNotEmpty()) {
+        val next: Pair<Int, Int> = queue.peek()
+
+        adjacent(next).minus(visited).forEach { neighbor ->
+            val newPath = delta.getValue(next) + getValue(neighbor)
+
+            if (newPath < delta.getValue(neighbor)) {
+                queue.remove(neighbor)
+                delta.setValue(neighbor, newPath)
+                queue.add(neighbor)
+                previous.setValue(neighbor, next)
+            }
+        }
+
+        visited.add(next)
+        queue.remove()
+    }
+
+    return previous.map { it.toList() }
+}
+
