@@ -23,9 +23,9 @@ fun String.permutations(): List<String> {
     }
 }
 
-val Pair<Int, Int>.y: Int
+val <E> Pair<E, E>.y: E
     get() = this.second
-val Pair<Int, Int>.x: Int
+val <E> Pair<E, E>.x: E
     get() = this.first
 
 val <E> List<List<E>>.gridSize: Pair<Int, Int>
