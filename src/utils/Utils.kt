@@ -4,7 +4,15 @@ import java.util.*
 import kotlin.collections.HashSet
 
 operator fun Pair<Int, Int>.times(arg: Int): Pair<Int, Int> = first * arg to second * arg
+
+operator fun Pair<Long, Long>.times(arg: Long): Pair<Long, Long> = first * arg to second * arg
+
+@JvmName("plusIntInt")
 operator fun Pair<Int, Int>.plus(other: Pair<Int, Int>): Pair<Int, Int> =
+    first + other.first to second + other.second
+
+@JvmName("plusLongLong")
+operator fun Pair<Long, Long>.plus(other: Pair<Long, Long>): Pair<Long, Long> =
     first + other.first to second + other.second
 
 operator fun Pair<Int, Int>.minus(other: Pair<Int, Int>): Pair<Int, Int> =
@@ -148,5 +156,12 @@ fun List<List<Int>>.dijkstra(start: Pair<Int, Int>): List<List<Pair<Int, Int>?>>
     }
 
     return previous.map { it.toList() }
+}
+
+class Memoized<X,R>(val fn: (X)-> R) {
+    private val cache: MutableMap<X, R> = HashMap()
+    operator fun invoke(x: X) : R {
+        return cache.getOrPut(x) { fn(x) }
+    }
 }
 
