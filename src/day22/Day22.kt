@@ -9,23 +9,16 @@ import kotlin.math.abs
 import kotlin.system.measureTimeMillis
 
 
-data class Cube(
-    val on: Boolean,
-    val x: Pair<Int, Int>,
-    val y: Pair<Int, Int>,
-    val z: Pair<Int, Int>
-)
+data class Cube(val coords: List<Pair<Int, Int>>)
 
-fun Cube.small(): Boolean {
-    return listOf(x.first, x.x, y.x, y.y, z.x, z.y).any { abs(it) <= 50 }
-}
+fun Cube.small() = coords.flatMap { listOf(it.x, it.y) }.any { abs(it) <= 50 }
 
 fun Cube.points(): Set<Triple<Int, Int, Int>> {
     val allPoints = HashSet<Triple<Int, Int, Int>>()
 
-    for (i in x.x..x.y) {
-        for (j in y.x..y.y) {
-            for (k in z.x..z.y) {
+    for (i in coords[0].x..coords[0].y) {
+        for (j in coords[1].x..coords[1].y) {
+            for (k in coords[2].x..coords[2].y) {
                 allPoints.add(Triple(i, j, k))
             }
         }
@@ -33,204 +26,118 @@ fun Cube.points(): Set<Triple<Int, Int, Int>> {
     return allPoints
 }
 
-fun Cube.count(): Long {
-    return (x.y - x.x + 1).toLong() * (y.y - y.x + 1) * (z.y - z.x + 1)
-}
+fun Cube.count() = coords.fold(1L) { acc, it -> acc * (it.y - it.x + 1) }
 
 fun Cube.intersect(other: Cube): Cube? {
-    if (other.x.y < x.x ||
-        other.y.y < y.x ||
-        other.z.y < z.x
-    ) {
-        return null
-    }
-    if (x.y < other.x.x ||
-        y.y < other.y.x ||
-        z.y < other.z.x
+    if (other.coords[0].y < coords[0].x || coords[0].y < other.coords[0].x ||
+        other.coords[1].y < coords[1].x || coords[1].y < other.coords[1].x ||
+        other.coords[2].y < coords[2].x || coords[2].y < other.coords[2].x
     ) {
         return null
     }
     return Cube(
-        other.on, max(other.x.x, x.x) to min(other.x.y, x.y),
-        max(other.y.x, y.x) to min(other.y.y, y.y),
-        max(other.z.x, z.x) to min(other.z.y, z.y)
+        listOf(
+            max(other.coords[0].x, coords[0].x) to min(other.coords[0].y, coords[0].y),
+            max(other.coords[1].x, coords[1].x) to min(other.coords[1].y, coords[1].y),
+            max(other.coords[2].x, coords[2].x) to min(other.coords[2].y, coords[2].y)
+        )
     )
 }
 
-fun Cube.cut(axis: Int, value: Int): List<Cube> {
-    if (axis == 0) {
-        if (value <= x.x || value > x.y)
-            return listOf(this)
-        return listOf(copy(on = on, x = x.x to value - 1), copy(on = on, x = value to x.y))
-    } else if (axis == 1) {
-        if (value <= y.x || value > y.y)
-            return listOf(this)
-
-        return listOf(copy(on = on, y = y.x to value - 1), copy(on = on, y = value to y.y))
-    } else if (value <= z.x || value > z.y)
+fun Cube.cut(axis: Int, cuts: Pair<Int, Int>): List<Cube> {
+    val slices = mutableListOf<Cube>()
+    if (coords[axis].y < cuts.first || cuts.second < coords[axis].x) {
+        assert(false) { "Shall be intersecting" }
         return listOf(this)
-    return listOf(copy(on = on, z = z.x to value - 1), copy(on = on, z = value to z.y))
+    }
+    slices.add(copy(coords = coords.mapIndexed { i, it -> if (i == axis) cuts else it }))
+    if (coords[axis].x < cuts.first) {
+        slices.add(copy(coords = coords.mapIndexed { i, it -> if (i == axis) coords[axis].x to cuts.first - 1 else it }))
+    }
+    if (cuts.second < coords[axis].y) {
+        slices.add(copy(coords = coords.mapIndexed { i, it -> if (i == axis) cuts.second + 1 to coords[axis].y else it }))
+    }
+    return slices
 }
 
-fun Cube.merge(other: Cube): Set<Cube> {
-    assert(this.on)
-    var cubes = setOf(this)
-    if (other.on) {
-        cubes = setOf(this, other)
-    }
-    listOf(x.x, x.y + 1, other.x.x, other.x.y + 1).sorted().forEach {
-        cubes = cubes.flatMap { cube -> cube.cut(0, it) }.toSet()
-    }
-    listOf(y.x, y.y + 1, other.y.x, other.y.y + 1).sorted().forEach {
-        cubes = cubes.flatMap { cube -> cube.cut(1, it) }.toSet()
-    }
-    listOf(z.x, z.y + 1, other.z.x, other.z.y + 1).sorted().forEach {
-        cubes = cubes.flatMap { cube -> cube.cut(2, it) }.toSet()
-    }
-//    cubes = cubes.flatMap {cube -> cube.cut(0, other.x.y+1) }.toSet()
-//    cubes = cubes.flatMap {cube -> cube.cut(1, other.y.x) }.toSet()
-//    cubes = cubes.flatMap {cube -> cube.cut(1, other.y.y+1) }.toSet()
-//    cubes = cubes.flatMap {cube -> cube.cut(2, other.z.x) }.toSet()
-//    cubes = cubes.flatMap {cube -> cube.cut(2, other.z.y+1) }.toSet()
+fun List<Cube>.union(other: Cube): List<Cube> {
 
-    if (other.on) {
-        for (c1 in cubes) {
-            assert(c1.on)
-            for (c2 in cubes) {
-                if (c1 == c2) continue
-                assert(c1.intersect(c2) == null)
-            }
-        }
+    var candidateParts = mutableListOf(other)
+    for (cube in this) {
+        val nextCandidateParts = mutableListOf<Cube>()
+        candidateParts.forEach { nextCandidateParts.addAll(it.difference(cube)) }
+        candidateParts = nextCandidateParts
+        if (candidateParts.isEmpty())
+            break
+    }
+    return candidateParts
+}
 
-        return cubes
+fun Cube.difference(other: Cube): List<Cube> {
+    val intersection = this.intersect(other) ?: return listOf(this)
+
+    var slicedCube = this
+    val cubes = mutableListOf<Cube>()
+
+    for (i in 0..2) {
+        slicedCube.cut(i, intersection.coords[i])
+            .let { slicedCube = it.first(); cubes.addAll(it.drop(1)) }
     }
-    cubes = cubes.filterNot { cube -> cube.inside(other) }.toSet()
-    for (c1 in cubes) {
-        assert(c1.on)
-        for (c2 in cubes) {
-            if (c1 == c2) continue
-            assert(c1.intersect(c2) == null)
-        }
-    }
+
+    assert(intersection == slicedCube)
+    assert(cubes.size < 7)
+
     return cubes
 }
 
-private fun Cube.inside(other: Cube): Boolean {
-    if (other.x.x <= x.x && x.y <= other.x.y &&
-        other.y.x <= y.x &&
-        other.z.x <= z.x &&
-        y.y <= other.y.y &&
-        z.y <= other.z.y
-    ) {
-        return true
-    }
-    return false
-}
-
-
 fun solve(file: File) {
     println("---- ${file.nameWithoutExtension} ----")
-    val eol = System.lineSeparator()
-    val cubes = file.readLines().map { line ->
+    val steps = file.readLines().map { line ->
         val result = """(\w+) x=(-?\d+)..(-?\d+),y=(-?\d+)..(-?\d+),z=(-?\d+)..(-?\d+)""".toRegex()
             .find(line)
-//        val state = result!!.groups[1]
-        val (state, minx, maxx, miny, maxy, minz, maxz) = result!!.destructured
-        Cube(
-            state == "on",
-            minx.toInt() to maxx.toInt(),
-            miny.toInt() to maxy.toInt(),
-            minz.toInt() to maxz.toInt()
-        )
+        val (state, minX, maxX, minY, maxY, minZ, maxZ) = result!!.destructured
+        (state == "on") to
+                Cube(
+                    listOf(
+                        minX.toInt() to maxX.toInt(),
+                        minY.toInt() to maxY.toInt(),
+                        minZ.toInt() to maxZ.toInt()
+                    )
+                )
     }
 
-    println(cubes.first())
+    println(steps.first())
 
 
     val timeInMillis = measureTimeMillis {
-        val sCubes = cubes.filter { it.small() }
+        val sCubes = steps.filter { it.second.small() }
 
-        val result = sCubes.fold(HashSet<Triple<Int, Int, Int>>()) { acc, cube ->
-            if (cube.on) {
+        val result = sCubes.fold(HashSet<Triple<Int, Int, Int>>()) { acc, (on, cube) ->
+            if (on) {
                 acc.addAll(cube.points())
             } else {
                 acc.removeAll(cube.points())
             }
-//            println(acc.size)
             acc
         }
 
         val stage1result = result.size
         println("Stage1:$stage1result")
 
-        val part2Cubes = cubes
-
-        val xcuts = part2Cubes.flatMap { listOf(it.x.x, it.x.y, it.x.y+1) }.sorted().distinct()
-        val ycuts = part2Cubes.flatMap { listOf(it.y.x, it.y.y, it.y.y+1) }.sorted().distinct()
-        val zcuts = part2Cubes.flatMap { listOf(it.z.x, it.z.y, it.z.y+1) }.sorted().distinct()
-//        val xcuts = smallCubes.flatMap { listOf(it.x.x, it.x.y) }.sorted().let { cuts -> cuts + (cuts.last() + 1)}
-//        val ycuts = smallCubes.flatMap { listOf(it.y.x, it.y.y) }.sorted().let { cuts -> cuts + (cuts.last() + 1)}
-//        val zcuts = smallCubes.flatMap { listOf(it.z.x, it.z.y) }.sorted().let { cuts -> cuts + (cuts.last() + 1)}
-        println(xcuts)
-        println(ycuts)
-        println(zcuts)
-        val total = xcuts.size.toLong()*ycuts.size*zcuts.size
-        println(total)
-        var counter = 0L
-        var turnedOn = 0L
-        for (xrange in xcuts.zipWithNext()) {
-            for (yrange in ycuts.zipWithNext()) {
-                for (zrange in zcuts.zipWithNext()) {
-                    val tested = Cube(true, xrange.x to xrange.y - 1, yrange.x to yrange.y -1, zrange.x to zrange.y - 1)
-                    counter += 1L
-                    if (counter % 1048576.toLong() == 0L) {
-                        println("$counter/$total")
-                    }
-                    val important = part2Cubes.filter { tested.inside(it)}
-                    if (important.any { it.on} && important.last().on) {
-                        turnedOn += tested.count()
-//                        println("${tested.count()} $tested")
-                    } else {
-//                        for (i in tested.x.x..tested.x.y) {
-//                            for (j in tested.y.x..tested.y.y) {
-//                                for (k in tested.z.x .. tested.z.y) {
-//                                    assert(!result.contains(Triple(i,j,k)))
-//                                }
-//                            }
-//                        }
-                    }
-                }
+        var onCubes = mutableListOf(steps.first().second)
+        for ((on, candidateCube) in steps) {
+            if (on) {
+                onCubes.addAll(onCubes.union(candidateCube))
+            } else {
+                onCubes = onCubes.flatMap { it.difference(candidateCube) }.toMutableList()
             }
         }
 
-        //2758514936282235
-        //2758514936282235
-        println(turnedOn)
-        val stage2result = turnedOn
-
-
+        val stage2result = onCubes.sumOf { it.count() }
         println("Stage2: $stage2result")
     }
     println("---- ${file.nameWithoutExtension} ---- Elapsed time: $timeInMillis")
 }
-
-//private fun Set<Cube>.removeIntersections(): Set<Cube> {
-//    var cubes = this.toMutableSet()
-//    for (c1 in cubes) {
-//        assert(c1.on)
-//        for (c2 in cubes) {
-//            assert(c2.on)
-//            if (c1 == c2) continue
-//            if (c1.intersect(c2) == null) continue
-//            cubes.remove(c1)
-//            cubes.remove(c2)
-//            cubes.addAll(c1.merge(c2))
-//            return cubes.removeIntersections()
-//
-//        }
-//    }
-//    return cubes
-//}
 
 //1214313344725528
 fun main() {
