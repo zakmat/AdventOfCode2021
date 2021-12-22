@@ -88,8 +88,8 @@ private fun State.next(move: Int): State {
     val newPos = (pos[roll % 2] + move) % 10
     val newScore = score[roll % 2] + newPos + 1
     return copy(
-        pos = pos.mapIndexed { i, v -> if (i == (roll % 2)) newPos else v },
-        score = score.mapIndexed { i, v -> if (i == (roll % 2)) newScore else v },
+        pos = pos.update(roll % 2, newPos),
+        score = score.update(roll % 2, newScore),
         roll = roll + 1
     )
 }

@@ -1,6 +1,7 @@
 package day22
 
 import utils.lower
+import utils.update
 import utils.upper
 import java.io.File
 import java.lang.Integer.max
@@ -48,12 +49,12 @@ fun Cube.cut(axis: Int, cuts: Pair<Int, Int>): List<Cube> {
         assert(false) { "Shall be intersecting" }
         return listOf(this)
     }
-    slices.add(copy(coords = coords.mapIndexed { i, old -> if (i == axis) cuts else old }))
+    slices.add(copy(coords = coords.update(axis, cuts)))
     if (coords[axis].lower < cuts.first) {
-        slices.add(copy(coords = coords.mapIndexed { i, old -> if (i == axis) coords[axis].lower to cuts.first - 1 else old }))
+        slices.add(copy(coords = coords.update(axis, coords[axis].lower to cuts.first - 1)))
     }
     if (cuts.second < coords[axis].upper) {
-        slices.add(copy(coords = coords.mapIndexed { i, old -> if (i == axis) cuts.second + 1 to coords[axis].upper else old }))
+        slices.add(copy(coords = coords.update(axis, cuts.second + 1 to coords[axis].upper)))
     }
     return slices
 }
@@ -63,7 +64,7 @@ fun List<Cube>.union(other: Cube): List<Cube> {
     var candidateParts = mutableListOf(other)
     for (cube in this) {
         val nextCandidateParts = mutableListOf<Cube>()
-        candidateParts.forEach { nextCandidateParts.addAll(it.difference(cube)) }
+        candidateParts.forEach { nextCandidateParts.addAll(it.subtract(cube)) }
         candidateParts = nextCandidateParts
         if (candidateParts.isEmpty())
             break
@@ -71,7 +72,7 @@ fun List<Cube>.union(other: Cube): List<Cube> {
     return candidateParts
 }
 
-fun Cube.difference(other: Cube): List<Cube> {
+fun Cube.subtract(other: Cube): List<Cube> {
     val intersection = this.intersect(other) ?: return listOf(this)
 
     var slicedCube = this
@@ -120,7 +121,7 @@ fun solve(file: File) {
             if (on) {
                 onCubes + onCubes.union(candidateCube)
             } else {
-                onCubes.flatMap { it.difference(candidateCube) }
+                onCubes.flatMap { it.subtract(candidateCube) }
             }
         }.sumOf { it.count() }
         println("Stage2: $stage2result")
