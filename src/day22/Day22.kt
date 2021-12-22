@@ -1,7 +1,7 @@
 package day22
 
-import utils.x
-import utils.y
+import utils.lower
+import utils.upper
 import java.io.File
 import java.lang.Integer.max
 import java.lang.Integer.min
@@ -11,14 +11,14 @@ import kotlin.system.measureTimeMillis
 
 data class Cube(val coords: List<Pair<Int, Int>>)
 
-fun Cube.small() = coords.flatMap { listOf(it.x, it.y) }.any { abs(it) <= 50 }
+fun Cube.small() = coords.flatMap { listOf(it.lower, it.upper) }.any { abs(it) <= 50 }
 
 fun Cube.points(): Set<Triple<Int, Int, Int>> {
     val allPoints = HashSet<Triple<Int, Int, Int>>()
 
-    for (i in coords[0].x..coords[0].y) {
-        for (j in coords[1].x..coords[1].y) {
-            for (k in coords[2].x..coords[2].y) {
+    for (i in coords[0].lower..coords[0].upper) {
+        for (j in coords[1].lower..coords[1].upper) {
+            for (k in coords[2].lower..coords[2].upper) {
                 allPoints.add(Triple(i, j, k))
             }
         }
@@ -26,36 +26,34 @@ fun Cube.points(): Set<Triple<Int, Int, Int>> {
     return allPoints
 }
 
-fun Cube.count() = coords.fold(1L) { acc, it -> acc * (it.y - it.x + 1) }
+fun Cube.count() = coords.fold(1L) { acc, it -> acc * (it.upper - it.lower + 1) }
 
 fun Cube.intersect(other: Cube): Cube? {
-    if (other.coords[0].y < coords[0].x || coords[0].y < other.coords[0].x ||
-        other.coords[1].y < coords[1].x || coords[1].y < other.coords[1].x ||
-        other.coords[2].y < coords[2].x || coords[2].y < other.coords[2].x
-    ) {
+    if (coords.zip(other.coords).any { (firstCube, secondCube) ->
+            firstCube.upper < secondCube.lower || secondCube.upper < firstCube.lower
+        }) {
         return null
     }
     return Cube(
-        listOf(
-            max(other.coords[0].x, coords[0].x) to min(other.coords[0].y, coords[0].y),
-            max(other.coords[1].x, coords[1].x) to min(other.coords[1].y, coords[1].y),
-            max(other.coords[2].x, coords[2].x) to min(other.coords[2].y, coords[2].y)
-        )
+        coords.zip(other.coords)
+            .map { (firstCube, secondCube) ->
+                max(firstCube.lower, secondCube.lower) to min(firstCube.upper, secondCube.upper)
+            }
     )
 }
 
 fun Cube.cut(axis: Int, cuts: Pair<Int, Int>): List<Cube> {
     val slices = mutableListOf<Cube>()
-    if (coords[axis].y < cuts.first || cuts.second < coords[axis].x) {
+    if (coords[axis].upper < cuts.first || cuts.second < coords[axis].lower) {
         assert(false) { "Shall be intersecting" }
         return listOf(this)
     }
-    slices.add(copy(coords = coords.mapIndexed { i, it -> if (i == axis) cuts else it }))
-    if (coords[axis].x < cuts.first) {
-        slices.add(copy(coords = coords.mapIndexed { i, it -> if (i == axis) coords[axis].x to cuts.first - 1 else it }))
+    slices.add(copy(coords = coords.mapIndexed { i, old -> if (i == axis) cuts else old }))
+    if (coords[axis].lower < cuts.first) {
+        slices.add(copy(coords = coords.mapIndexed { i, old -> if (i == axis) coords[axis].lower to cuts.first - 1 else old }))
     }
-    if (cuts.second < coords[axis].y) {
-        slices.add(copy(coords = coords.mapIndexed { i, it -> if (i == axis) cuts.second + 1 to coords[axis].y else it }))
+    if (cuts.second < coords[axis].upper) {
+        slices.add(copy(coords = coords.mapIndexed { i, old -> if (i == axis) cuts.second + 1 to coords[axis].upper else old }))
     }
     return slices
 }
@@ -106,34 +104,25 @@ fun solve(file: File) {
                 )
     }
 
-    println(steps.first())
-
-
     val timeInMillis = measureTimeMillis {
         val sCubes = steps.filter { it.second.small() }
 
-        val result = sCubes.fold(HashSet<Triple<Int, Int, Int>>()) { acc, (on, cube) ->
+        val stage1result = sCubes.fold(emptySet<Triple<Int, Int, Int>>()) { acc, (on, cube) ->
             if (on) {
-                acc.addAll(cube.points())
+                acc.union(cube.points())
             } else {
-                acc.removeAll(cube.points())
+                acc.subtract(cube.points())
             }
-            acc
-        }
-
-        val stage1result = result.size
+        }.size
         println("Stage1:$stage1result")
 
-        var onCubes = mutableListOf(steps.first().second)
-        for ((on, candidateCube) in steps) {
+        val stage2result = steps.fold(emptyList<Cube>()) { onCubes, (on, candidateCube) ->
             if (on) {
-                onCubes.addAll(onCubes.union(candidateCube))
+                onCubes + onCubes.union(candidateCube)
             } else {
-                onCubes = onCubes.flatMap { it.difference(candidateCube) }.toMutableList()
+                onCubes.flatMap { it.difference(candidateCube) }
             }
-        }
-
-        val stage2result = onCubes.sumOf { it.count() }
+        }.sumOf { it.count() }
         println("Stage2: $stage2result")
     }
     println("---- ${file.nameWithoutExtension} ---- Elapsed time: $timeInMillis")

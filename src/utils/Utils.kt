@@ -35,6 +35,10 @@ val <E> Pair<E, E>.y: E
     get() = this.second
 val <E> Pair<E, E>.x: E
     get() = this.first
+val <E> Pair<E, E>.upper: E
+    get() = this.second
+val <E> Pair<E, E>.lower: E
+    get() = this.first
 
 val <E> List<List<E>>.gridSize: Pair<Int, Int>
     get() = this.size to this[0].size
